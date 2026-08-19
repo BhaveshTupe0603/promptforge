@@ -3,24 +3,44 @@ import { analyzePrompt, generateFinalPrompt } from '../services/api';
 import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Copy, Sparkles, ExternalLink } from 'lucide-react';
 
 export default function PromptBuilder() {
-  // Wizard State
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Form State
   const [roughPrompt, setRoughPrompt] = useState('');
   const [technique, setTechnique] = useState('RTF');
   
-  // LLM #1 State
   const [components, setComponents] = useState({});
   const [missingInfo, setMissingInfo] = useState([]);
-
-  // LLM #2 State
   const [finalResult, setFinalResult] = useState(null);
 
-  // --- Handlers ---
-  
+  // Define which fields to show based on the framework
+  const frameworkFields = {
+    RTF: [
+      { key: 'role', label: 'Role' },
+      { key: 'task', label: 'Task' },
+      { key: 'format_or_output', label: 'Format / Output' },
+      { key: 'constraints', label: 'Constraints (comma separated)' }
+    ],
+    RTC: [
+      { key: 'role', label: 'Role' },
+      { key: 'task', label: 'Task' },
+      { key: 'context', label: 'Context' },
+      { key: 'constraints', label: 'Constraints (comma separated)' }
+    ],
+    GCO: [
+      { key: 'task', label: 'Goal (Task)' },
+      { key: 'constraints', label: 'Constraints (comma separated)' },
+      { key: 'format_or_output', label: 'Output Format' }
+    ],
+    FEW_SHOT: [
+      { key: 'task', label: 'Task' },
+      { key: 'examples', label: 'Few-Shot Examples (Separate by blank line)' },
+      { key: 'format_or_output', label: 'Format / Output' },
+      { key: 'constraints', label: 'Constraints (comma separated)' }
+    ]
+  };
+
   const handleAnalyze = async () => {
     if (!roughPrompt.trim()) return setError("Please enter a rough prompt.");
     
@@ -28,12 +48,9 @@ export default function PromptBuilder() {
     setError(null);
     try {
       const data = await analyzePrompt(roughPrompt, technique);
-      
-      // Separate the missing_information from the editable components
       const { missing_information, ...editableComponents } = data.components;
       setComponents(editableComponents);
       setMissingInfo(missing_information || []);
-      
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to analyze prompt.");
@@ -66,14 +83,9 @@ export default function PromptBuilder() {
   };
 
   const handleOpenInGemini = () => {
-    // 1. Copy the prompt to clipboard automatically
     navigator.clipboard.writeText(finalResult.final_prompt);
-    
-    // 2. Open Google Gemini in a new tab
     window.open('https://gemini.google.com/app', '_blank');
   };
-
-  // --- Render Steps ---
 
   return (
     <div className="space-y-6">
@@ -116,18 +128,13 @@ export default function PromptBuilder() {
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Prompting Framework</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { id: 'RTF', label: 'Role, Task, Format' },
-                { id: 'RTC', label: 'Role, Task, Context' },
-                { id: 'GCO', label: 'Goal, Constraint, Output' },
-                { id: 'FEW_SHOT', label: 'Few-Shot Examples' }
-              ].map(tech => (
+              {Object.keys(frameworkFields).map(tech => (
                 <button
-                  key={tech.id}
-                  onClick={() => setTechnique(tech.id)}
-                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${technique === tech.id ? 'bg-blue-50 border-blue-600 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  key={tech}
+                  onClick={() => setTechnique(tech)}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${technique === tech ? 'bg-blue-50 border-blue-600 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                 >
-                  {tech.id}
+                  {tech}
                 </button>
               ))}
             </div>
@@ -144,7 +151,7 @@ export default function PromptBuilder() {
         </div>
       )}
 
-      {/* STEP 2: REFINE (The Human-in-the-Loop part) */}
+      {/* STEP 2: REFINE */}
       {step === 2 && (
         <div className="space-y-6">
           {missingInfo.length > 0 && (
@@ -161,50 +168,51 @@ export default function PromptBuilder() {
           )}
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
-            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Review & Edit Structured Components</h3>
+            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Refine {technique} Components</h3>
             
-            {/* 1. Standard String Fields (Role, Task, Context, etc.) */}
-            {Object.keys(components).map((key) => {
-              if (key === 'examples' || key === 'constraints') return null; 
+            {/* Dynamically render ONLY the fields for the chosen framework */}
+            {frameworkFields[technique].map((field) => {
               
+              if (field.key === 'constraints') {
+                return (
+                  <div key={field.key}>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">{field.label}</label>
+                    <textarea
+                      className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+                      value={Array.isArray(components.constraints) ? components.constraints.join(', ') : (components.constraints || '')}
+                      onChange={(e) => handleComponentChange('constraints', e.target.value.split(',').map(s => s.trim()))}
+                      placeholder="E.g., No jargon, Max 500 words"
+                    />
+                  </div>
+                )
+              }
+
+              if (field.key === 'examples') {
+                return (
+                  <div key={field.key}>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">{field.label}</label>
+                    <textarea
+                      className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]"
+                      value={Array.isArray(components.examples) ? components.examples.join('\n\n') : (components.examples || '')}
+                      onChange={(e) => handleComponentChange('examples', e.target.value.split('\n\n'))}
+                      placeholder="Example 1: User says 'Hello' -> Bot says 'Hi there!'&#10;&#10;Example 2: User says 'Bye' -> Bot says 'Goodbye!'"
+                    />
+                  </div>
+                )
+              }
+
               return (
-                <div key={key}>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1 capitalize">{key.replace('_', ' ')}</label>
+                <div key={field.key}>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">{field.label}</label>
                   <textarea
                     className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
-                    value={components[key] || ''}
-                    onChange={(e) => handleComponentChange(key, e.target.value)}
-                    placeholder={`Enter ${key.replace('_', ' ')}...`}
+                    value={components[field.key] || ''}
+                    onChange={(e) => handleComponentChange(field.key, e.target.value)}
+                    placeholder={`Enter ${field.label.toLowerCase()}...`}
                   />
                 </div>
               )
             })}
-
-            {/* 2. Constraints Array Field */}
-            {components.constraints !== undefined && (
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Constraints (comma separated)</label>
-                <textarea
-                  className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
-                  value={Array.isArray(components.constraints) ? components.constraints.join(', ') : (components.constraints || '')}
-                  onChange={(e) => handleComponentChange('constraints', e.target.value.split(',').map(s => s.trim()))}
-                  placeholder="E.g., No jargon, Max 500 words"
-                />
-              </div>
-            )}
-
-            {/* 3. Examples Array Field (Explicitly shown for FEW_SHOT) */}
-            {(technique === 'FEW_SHOT' || components.examples !== undefined) && (
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Few-Shot Examples (Separate by blank line)</label>
-                <textarea
-                  className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]"
-                  value={Array.isArray(components.examples) ? components.examples.join('\n\n') : (components.examples || '')}
-                  onChange={(e) => handleComponentChange('examples', e.target.value.split('\n\n'))}
-                  placeholder="Example 1: User says 'Hello' -> Bot says 'Hi there!'&#10;&#10;Example 2: User says 'Bye' -> Bot says 'Goodbye!'"
-                />
-              </div>
-            )}
 
             <div className="flex gap-3 pt-4">
               <button onClick={() => setStep(1)} className="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors">
