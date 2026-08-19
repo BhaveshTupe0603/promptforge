@@ -14,8 +14,8 @@ export default function PromptBuilder() {
   const [missingInfo, setMissingInfo] = useState([]);
   const [finalResult, setFinalResult] = useState(null);
 
-  // Added: Full names for the UI
   const frameworkNames = {
+    AUTO: 'Auto-Detect Best Fit',
     RTF: 'Role, Task, Format',
     RTC: 'Role, Task, Context',
     GCO: 'Goal, Constraint, Output',
@@ -56,6 +56,12 @@ export default function PromptBuilder() {
     try {
       const data = await analyzePrompt(roughPrompt, technique);
       const { missing_information, ...editableComponents } = data.components;
+      
+      // Update the framework if AUTO was selected and resolved
+      if (data.technique) {
+        setTechnique(data.technique);
+      }
+
       setComponents(editableComponents);
       setMissingInfo(missing_information || []);
       setStep(2);
@@ -134,8 +140,8 @@ export default function PromptBuilder() {
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Prompting Framework</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {Object.keys(frameworkFields).map(tech => (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {Object.keys(frameworkNames).map(tech => (
                 <button
                   key={tech}
                   onClick={() => setTechnique(tech)}
@@ -176,7 +182,6 @@ export default function PromptBuilder() {
           )}
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
-            {/* Added: Full form in the Step 2 Header */}
             <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Refine Components: {frameworkNames[technique]}</h3>
             
             {frameworkFields[technique].map((field) => {

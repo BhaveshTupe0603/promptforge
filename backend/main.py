@@ -28,7 +28,6 @@ def calculate_quality_score(components) -> tuple[int, QualityChecks]:
         format=bool(components.format_or_output and components.format_or_output.strip())
     )
     
-    # 20 points per passing check
     score = sum([
         20 if checks.role else 0,
         20 if checks.task else 0,
@@ -59,14 +58,25 @@ async def analyze_prompt_endpoint(payload: AnalyzeRequest):
 
     try:
         extracted = await analyze_rough_prompt(payload)
+        
+        # Determine the final technique to send to the frontend
+        final_technique = extracted.recommended_framework if payload.technique == "AUTO" else payload.technique
+        
         return AnalyzeResponse(
-            technique=payload.technique,
+            technique=final_technique,
             components=extracted
         )
     except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Whoa there, speedy! We've hit the AI rate limit. Please wait about 30 seconds and try generating your prompt again."
+            )
+            
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to analyze prompt: {str(e)}"
+            detail=f"Failed to analyze prompt: {error_msg}"
         )
 
 @app.post(
@@ -77,25 +87,29 @@ async def analyze_prompt_endpoint(payload: AnalyzeRequest):
 )
 async def generate_prompt_endpoint(payload: GenerateRequest):
     try:
-        # 1. This returns a GenerateResponse object from the LLM
         llm_response = await generate_final_prompt(payload)
         
-        # 2. Extract the actual markdown string
+        # Extract the actual markdown string
         final_prompt_string = llm_response.final_prompt
         
-        # 3. Calculate your local scores
         score, checks = calculate_quality_score(payload.components)
         
-        # 4. Build and return the final valid GenerateResponse
         return GenerateResponse(
             final_prompt=final_prompt_string,
             score=score,
             checks=checks
         )
     except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Whoa there, speedy! We've hit the AI rate limit. Please wait about 30 seconds and try generating your prompt again."
+            )
+            
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate final prompt: {str(e)}"
+            detail=f"Failed to generate final prompt: {error_msg}"
         )
 
 
