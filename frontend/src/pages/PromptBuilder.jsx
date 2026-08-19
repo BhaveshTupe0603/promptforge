@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { analyzePrompt, generateFinalPrompt } from '../services/api';
-import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Copy, Sparkles } from 'lucide-react';
+import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Copy, Sparkles, ExternalLink } from 'lucide-react';
 
 export default function PromptBuilder() {
   // Wizard State
@@ -63,6 +63,14 @@ export default function PromptBuilder() {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(finalResult.final_prompt);
     alert("Copied to clipboard!");
+  };
+
+  const handleOpenInGemini = () => {
+    // 1. Copy the prompt to clipboard automatically
+    navigator.clipboard.writeText(finalResult.final_prompt);
+    
+    // 2. Open Google Gemini in a new tab
+    window.open('https://gemini.google.com/app', '_blank');
   };
 
   // --- Render Steps ---
@@ -155,8 +163,9 @@ export default function PromptBuilder() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
             <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Review & Edit Structured Components</h3>
             
+            {/* 1. Standard String Fields (Role, Task, Context, etc.) */}
             {Object.keys(components).map((key) => {
-              if (key === 'examples' || key === 'constraints') return null; // Handle arrays separately if needed, simplified for sprint
+              if (key === 'examples' || key === 'constraints') return null; 
               
               return (
                 <div key={key}>
@@ -165,22 +174,37 @@ export default function PromptBuilder() {
                     className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
                     value={components[key] || ''}
                     onChange={(e) => handleComponentChange(key, e.target.value)}
-                    placeholder={`Enter ${key}...`}
+                    placeholder={`Enter ${key.replace('_', ' ')}...`}
                   />
                 </div>
               )
             })}
 
-            {/* Quick array handler for constraints */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Constraints (comma separated)</label>
-              <textarea
-                className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
-                value={Array.isArray(components.constraints) ? components.constraints.join(', ') : (components.constraints || '')}
-                onChange={(e) => handleComponentChange('constraints', e.target.value.split(',').map(s => s.trim()))}
-                placeholder="E.g., No jargon, Max 500 words"
-              />
-            </div>
+            {/* 2. Constraints Array Field */}
+            {components.constraints !== undefined && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Constraints (comma separated)</label>
+                <textarea
+                  className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+                  value={Array.isArray(components.constraints) ? components.constraints.join(', ') : (components.constraints || '')}
+                  onChange={(e) => handleComponentChange('constraints', e.target.value.split(',').map(s => s.trim()))}
+                  placeholder="E.g., No jargon, Max 500 words"
+                />
+              </div>
+            )}
+
+            {/* 3. Examples Array Field (Explicitly shown for FEW_SHOT) */}
+            {(technique === 'FEW_SHOT' || components.examples !== undefined) && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Few-Shot Examples (Separate by blank line)</label>
+                <textarea
+                  className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px]"
+                  value={Array.isArray(components.examples) ? components.examples.join('\n\n') : (components.examples || '')}
+                  onChange={(e) => handleComponentChange('examples', e.target.value.split('\n\n'))}
+                  placeholder="Example 1: User says 'Hello' -> Bot says 'Hi there!'&#10;&#10;Example 2: User says 'Bye' -> Bot says 'Goodbye!'"
+                />
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <button onClick={() => setStep(1)} className="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors">
@@ -234,9 +258,21 @@ export default function PromptBuilder() {
               </div>
             </div>
 
-            <div className="mt-8">
-              <button onClick={() => { setStep(1); setRoughPrompt(''); }} className="w-full px-6 py-3 border-2 border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-colors">
+            <div className="mt-8 flex gap-3">
+              <button 
+                onClick={() => { setStep(1); setRoughPrompt(''); }} 
+                className="flex-1 px-6 py-3 border-2 border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-colors"
+              >
                 Start a New Prompt
+              </button>
+              
+              <button 
+                onClick={handleOpenInGemini}
+                className="flex-[2] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+              >
+                <Sparkles className="w-5 h-5" />
+                Copy & Open in Google Gemini
+                <ExternalLink className="w-4 h-4 ml-1 opacity-80" />
               </button>
             </div>
           </div>
