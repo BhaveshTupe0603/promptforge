@@ -46,8 +46,8 @@ Extract the components according to the {request.technique} framework.
         ),
     )
 
-    structured_data = ExtractedPromptComponents.model_validate_json(response.text)
-    return structured_data
+    # The SDK automatically validates the JSON against your Pydantic schema
+    return response.parsed
 
 async def generate_final_prompt(request: GenerateRequest) -> GenerateResponse:
     components_dict = request.components.model_dump(exclude_none=True, exclude_unset=True)
@@ -78,5 +78,5 @@ Instructions:
         ),
     )
 
-    structured_result = GenerateResponse.model_validate_json(response.text)
-    return structured_result
+    # Returns the pre-parsed GenerateResponse Pydantic model
+    return response.parsed

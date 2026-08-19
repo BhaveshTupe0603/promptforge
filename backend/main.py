@@ -77,11 +77,18 @@ async def analyze_prompt_endpoint(payload: AnalyzeRequest):
 )
 async def generate_prompt_endpoint(payload: GenerateRequest):
     try:
-        final_prompt = await generate_final_prompt(payload)
+        # 1. This returns a GenerateResponse object from the LLM
+        llm_response = await generate_final_prompt(payload)
+        
+        # 2. Extract the actual markdown string
+        final_prompt_string = llm_response.final_prompt
+        
+        # 3. Calculate your local scores
         score, checks = calculate_quality_score(payload.components)
         
+        # 4. Build and return the final valid GenerateResponse
         return GenerateResponse(
-            final_prompt=final_prompt,
+            final_prompt=final_prompt_string,
             score=score,
             checks=checks
         )
