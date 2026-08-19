@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+body {
+  /* Tailwind v4 exposes its theme colors natively as CSS variables */
+  background-color: var(--color-slate-50); 
+}
