@@ -3,11 +3,10 @@ import json
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from models import AnalyzeRequest, GenerateRequest, ExtractedPromptComponents
+from models import AnalyzeRequest, GenerateRequest, ExtractedPromptComponents, GenerateResponse, QualityChecks
 
 load_dotenv()
 
-# Initializes automatically using GEMINI_API_KEY from environment
 client = genai.Client()
 
 SYSTEM_INSTRUCTION = """
@@ -50,7 +49,7 @@ Extract the components according to the {request.technique} framework.
     structured_data = ExtractedPromptComponents.model_validate_json(response.text)
     return structured_data
 
-async def generate_final_prompt(request: GenerateRequest) -> str:
+async def generate_final_prompt(request: GenerateRequest) -> GenerateResponse:
     components_dict = request.components.model_dump(exclude_none=True, exclude_unset=True)
     
     if "missing_information" in components_dict:
@@ -58,26 +57,26 @@ async def generate_final_prompt(request: GenerateRequest) -> str:
 
     generator_prompt = f"""
 You are an expert Prompt Engineer. Your job is to take the following approved components 
-and weave them into a single, highly effective, ready-to-use LLM prompt.
-
-Target Framework Strategy: {request.technique}
+and weave them into a single, highly effective, ready-to-use LLM prompt based on the {request.technique} framework.
 
 Approved Components:
 {json.dumps(components_dict, indent=2)}
 
 Instructions:
-1. Write ONLY the final prompt. Do not include any introductory or concluding text (e.g., "Here is your prompt:").
-2. Use clear formatting (markdown, bullet points, or clear paragraphs) so the final prompt is easy for an AI to read.
-3. Preserve all constraints. Do not invent factual details that are not in the components.
-4. Make it authoritative, unambiguous, and professional.
+1. Write the final assembled prompt clearly using markdown.
+2. Calculate a quality score from 0 to 100 based on how robust, complete, and clear the components are.
+3. Perform validation checks (true/false) for: role, task, context, constraints, and format based on whether they are effectively addressed in the final prompt.
 """
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=generator_prompt,
         config=types.GenerateContentConfig(
-            temperature=0.4,
+            response_mime_type="application/json",
+            response_schema=GenerateResponse,
+            temperature=0.3,
         ),
     )
 
-    return response.text.strip()
+    structured_result = GenerateResponse.model_validate_json(response.text)
+    return structured_result
