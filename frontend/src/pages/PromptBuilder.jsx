@@ -14,7 +14,14 @@ export default function PromptBuilder() {
   const [missingInfo, setMissingInfo] = useState([]);
   const [finalResult, setFinalResult] = useState(null);
 
-  // Define which fields to show based on the framework
+  // Added: Full names for the UI
+  const frameworkNames = {
+    RTF: 'Role, Task, Format',
+    RTC: 'Role, Task, Context',
+    GCO: 'Goal, Constraint, Output',
+    FEW_SHOT: 'Few-Shot Examples'
+  };
+
   const frameworkFields = {
     RTF: [
       { key: 'role', label: 'Role' },
@@ -132,9 +139,10 @@ export default function PromptBuilder() {
                 <button
                   key={tech}
                   onClick={() => setTechnique(tech)}
-                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${technique === tech ? 'bg-blue-50 border-blue-600 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1 transition-colors ${technique === tech ? 'bg-blue-50 border-blue-600 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                 >
-                  {tech}
+                  <span className="font-bold text-sm">{tech}</span>
+                  <span className="text-xs text-center opacity-80">{frameworkNames[tech]}</span>
                 </button>
               ))}
             </div>
@@ -168,11 +176,10 @@ export default function PromptBuilder() {
           )}
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
-            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Refine {technique} Components</h3>
+            {/* Added: Full form in the Step 2 Header */}
+            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Refine Components: {frameworkNames[technique]}</h3>
             
-            {/* Dynamically render ONLY the fields for the chosen framework */}
             {frameworkFields[technique].map((field) => {
-              
               if (field.key === 'constraints') {
                 return (
                   <div key={field.key}>
